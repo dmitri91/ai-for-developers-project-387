@@ -15,13 +15,14 @@ import {
   Title,
 } from "@mantine/core";
 import { api, ApiError, type EventType } from "../../api/client";
-import { formatDateLabel, formatDayQuery, formatTime } from "../../datetime";
+import { CALENDAR_TIME_ZONE, formatDateLabel, formatDayQuery, formatTime } from "../../datetime";
 
 export default function ConfirmBookingPage() {
   const { eventTypeId } = useParams<{ eventTypeId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const startAt = searchParams.get("ts");
+  const timeZone = searchParams.get("tz") ?? CALENDAR_TIME_ZONE;
 
   const [eventType, setEventType] = useState<EventType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,8 +66,8 @@ export default function ConfirmBookingPage() {
   if (loading) return <Loader mt="xl" />;
   if (error) return <Alert color="red" mt="xl">{error}</Alert>;
 
-  const dateLabel = startAt ? formatDateLabel(startAt) : "";
-  const timeLabel = startAt ? formatTime(startAt) : "";
+  const dateLabel = startAt ? formatDateLabel(startAt, timeZone) : "";
+  const timeLabel = startAt ? formatTime(startAt, timeZone) : "";
 
   return (
     <Container size="sm" pt="md">
@@ -98,7 +99,7 @@ export default function ConfirmBookingPage() {
               <Group>
                 <Button
                   variant="default"
-                  onClick={() => navigate(`/book/${eventTypeId}`, { state: { date: formatDayQuery(startAt) } })}
+                  onClick={() => navigate(`/book/${eventTypeId}`, { state: { date: formatDayQuery(startAt, timeZone) } })}
                 >
                   Назад к слотам
                 </Button>
@@ -124,7 +125,7 @@ export default function ConfirmBookingPage() {
               <Group>
                 <Button
                   variant="default"
-                  onClick={() => navigate(`/book/${eventTypeId}`, { state: { date: formatDayQuery(startAt) } })}
+                  onClick={() => navigate(`/book/${eventTypeId}`, { state: { date: formatDayQuery(startAt, timeZone) } })}
                   disabled={submitting}
                 >
                   Назад

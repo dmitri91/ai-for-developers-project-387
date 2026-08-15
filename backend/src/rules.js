@@ -4,7 +4,45 @@ const WORK_START = 9; // 09:00
 const WORK_END = 18; // 18:00
 const STEP_MIN = 30; // шаг сетки слотов
 const MS_PER_MIN = 60000;
-const MS_DAY = 86400000;
+const TIME_ZONE = "Europe/Moscow"; // канонический часовой пояс календаря (владельца)
+
+const zonedFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: TIME_ZONE,
+  hourCycle: "h23",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+const zonedParts = (d) =>
+  Object.fromEntries(zonedFormatter.formatToParts(d).map(({ type, value }) => [type, value]));
+
+const zonedDateStr = (d) => {
+  const { year, month, day } = zonedParts(d);
+  return `${year}-${month}-${day}`;
+};
+
+const zonedOffsetMin = (d) => {
+  const { year, month, day, hour, minute } = zonedParts(d);
+  const asUtc = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+  return Math.round((asUtc - d.getTime()) / MS_PER_MIN);
+};
+
+const zonedTimeToUtc = (dateStr, hour, minute = 0) => {
+  const guess = Date.UTC(
+    Number(dateStr.slice(0, 4)),
+    Number(dateStr.slice(5, 7)) - 1,
+    Number(dateStr.slice(8, 10)),
+    hour,
+    minute,
+  );
+  const first = zonedOffsetMin(new Date(guess));
+  const second = zonedOffsetMin(new Date(guess - first * MS_PER_MIN));
+  return new Date(guess - second * MS_PER_MIN).toISOString();
+};
 
 class ApiError extends Error {
   constructor(statusCode, code, message) {
@@ -20,17 +58,6 @@ export const validationError = (message) => new ApiError(400, "VALIDATION_ERROR"
 export const notFoundError = (message) => new ApiError(404, "NOT_FOUND", message);
 export const conflictError = (message) => new ApiError(409, "SLOT_OCCUPIED", message);
 
-const isoUtc = (dateStr, hour, minute = 0) =>
-  new Date(
-    Date.UTC(
-      Number(dateStr.slice(0, 4)),
-      Number(dateStr.slice(5, 7)) - 1,
-      Number(dateStr.slice(8, 10)),
-      hour,
-      minute,
-    ),
-  ).toISOString();
-
 const parseDate = (value) => {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const d = new Date(`${value}T00:00:00Z`);
@@ -38,6 +65,12 @@ const parseDate = (value) => {
 };
 
 const overlaps = ([aStart, aEnd], [bStart, bEnd]) => aStart < bEnd && bStart < aEnd;
+
+const addDays = (dateStr, n) => {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
 
 export function availabilityWindow(eventTypeId, fromValue, toValue) {
   const eventType = store.findEventType(eventTypeId);
@@ -51,18 +84,16 @@ export function availabilityWindow(eventTypeId, fromValue, toValue) {
   const durationMs = eventType.duration * MS_PER_MIN;
   const bookings = store.listBookings();
   const days = [];
-  let cur = new Date(from.getTime());
 
-  while (cur <= to) {
-    const dateStr = cur.toISOString().slice(0, 10);
+  for (let dateStr = fromValue; dateStr <= toValue; dateStr = addDays(dateStr, 1)) {
     const busy = bookings
-      .filter((b) => b.startAt.slice(0, 10) === dateStr)
+      .filter((b) => zonedDateStr(new Date(Date.parse(b.startAt))) === dateStr)
       .map((b) => [Date.parse(b.startAt), Date.parse(b.endAt)]);
 
     const slots = [];
     for (let h = WORK_START; h < WORK_END; h++) {
       for (let m = 0; m < 60; m += STEP_MIN) {
-        const startAt = isoUtc(dateStr, h, m);
+        const startAt = zonedTimeToUtc(dateStr, h, m);
         const s = Date.parse(startAt);
         const e = s + durationMs;
         const occupied = busy.some((interval) => overlaps([s, e], interval));
@@ -70,10 +101,9 @@ export function availabilityWindow(eventTypeId, fromValue, toValue) {
       }
     }
     days.push({ date: dateStr, slots });
-    cur = new Date(cur.getTime() + MS_DAY);
   }
 
-  return { eventTypeId, from: fromValue, to: toValue, days };
+  return { eventTypeId, from: fromValue, to: toValue, timeZone: TIME_ZONE, days };
 }
 
 export function createBooking({ eventTypeId, guestName, startAt }) {
@@ -87,10 +117,11 @@ export function createBooking({ eventTypeId, guestName, startAt }) {
   if (!Number.isFinite(start)) throw validationError("Некорректный startAt");
 
   const startDate = new Date(start);
-  const h = startDate.getUTCHours();
-  const m = startDate.getUTCMinutes();
+  const { hour, minute } = zonedParts(startDate);
+  const h = Number(hour);
+  const m = Number(minute);
   const end = start + eventType.duration * MS_PER_MIN;
-  const dayEnd = Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate(), WORK_END);
+  const dayEnd = Date.parse(zonedTimeToUtc(zonedDateStr(startDate), WORK_END));
 
   if (h < WORK_START || h >= WORK_END) throw validationError("Слот вне рабочего времени");
   if (m % STEP_MIN !== 0) throw validationError("Слот должен быть кратен 30 минутам");

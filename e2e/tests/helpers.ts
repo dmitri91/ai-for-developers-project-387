@@ -9,11 +9,21 @@ export function seededType(key: keyof typeof SEEDED_TYPES): { name: string; dura
   return { ...SEEDED_TYPES[key] };
 }
 
-export const todayISO = (): string => {
-  const now = new Date();
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 12))
-    .toISOString()
-    .slice(0, 10);
+// Календарь ведётся в часовом поясе владельца (совпадает с backend/src/rules.js и front/src/datetime.ts).
+export const CALENDAR_TIME_ZONE = "Europe/Moscow";
+
+export const calendarTodayISO = (): string => {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: CALENDAR_TIME_ZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+      .formatToParts(new Date())
+      .map((p) => [p.type, p.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
 };
 
 export async function freeSlotCount(page: Page): Promise<number> {
@@ -21,8 +31,7 @@ export async function freeSlotCount(page: Page): Promise<number> {
 }
 
 export async function openBookingOnToday(page: Page, eventTypeId: string): Promise<void> {
-  await page.goto(`/book/${eventTypeId}`);
-  await page.locator("[data-today]").click();
+  await page.goto(`/book/${eventTypeId}?date=${calendarTodayISO()}`);
   await expectFreeSlot(page);
 }
 

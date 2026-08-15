@@ -5,6 +5,46 @@ const PORT = Number(process.env.PORT ?? 4010);
 const WORK_START = 9; // 09:00
 const WORK_END = 18; // 18:00
 const STEP_MIN = 30; // слот каждые 30 минут
+const TIME_ZONE = "Europe/Moscow"; // канонический часовой пояс календаря (владельца)
+const MS_PER_MIN = 60000;
+
+const zonedFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: TIME_ZONE,
+  hourCycle: "h23",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+const zonedParts = (d) =>
+  Object.fromEntries(zonedFormatter.formatToParts(d).map(({ type, value }) => [type, value]));
+
+const zonedDateStr = (d) => {
+  const { year, month, day } = zonedParts(d);
+  return `${year}-${month}-${day}`;
+};
+
+const zonedOffsetMin = (d) => {
+  const { year, month, day, hour, minute } = zonedParts(d);
+  const asUtc = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute));
+  return Math.round((asUtc - d.getTime()) / MS_PER_MIN);
+};
+
+const zonedTimeToUtc = (dateStr, hour, minute = 0) => {
+  const guess = Date.UTC(
+    Number(dateStr.slice(0, 4)),
+    Number(dateStr.slice(5, 7)) - 1,
+    Number(dateStr.slice(8, 10)),
+    hour,
+    minute,
+  );
+  const first = zonedOffsetMin(new Date(guess));
+  const second = zonedOffsetMin(new Date(guess - first * MS_PER_MIN));
+  return new Date(guess - second * MS_PER_MIN).toISOString();
+};
 
 const eventTypes = [
   { id: "evt-15", name: "Встреча 15 минут", description: "Короткий тип события для быстрого слота.", duration: 15 },
@@ -13,16 +53,12 @@ const eventTypes = [
 const bookings = [];
 
 const now = () => new Date().toISOString();
-const isoUtc = (dateStr, hour, minute) =>
-  new Date(
-    Date.UTC(
-      Number(dateStr.slice(0, 4)),
-      Number(dateStr.slice(5, 7)) - 1,
-      Number(dateStr.slice(8, 10)),
-      hour,
-      minute,
-    ),
-  ).toISOString();
+
+const addDays = (dateStr, n) => {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
 
 function readBody(req) {
   return new Promise((resolve) => {
@@ -47,19 +83,16 @@ function availability(eventTypeId, from, to) {
   const type = eventTypes.find((t) => t.id === eventTypeId);
   const durationMs = (type?.duration ?? 15) * 60000;
   const days = [];
-  let cur = new Date(`${from}T00:00:00Z`);
-  const end = new Date(`${to}T00:00:00Z`);
 
-  while (cur <= end) {
-    const dateStr = cur.toISOString().slice(0, 10);
+  for (let dateStr = from; dateStr <= to; dateStr = addDays(dateStr, 1)) {
     const busy = bookings
-      .filter((b) => Date.parse(b.startAt) && b.startAt.slice(0, 10) === dateStr)
+      .filter((b) => zonedDateStr(new Date(Date.parse(b.startAt))) === dateStr)
       .map((b) => [Date.parse(b.startAt), Date.parse(b.endAt)]);
 
     const slots = [];
     for (let h = WORK_START; h < WORK_END; h++) {
       for (let m = 0; m < 60; m += STEP_MIN) {
-        const startAt = isoUtc(dateStr, h, m);
+        const startAt = zonedTimeToUtc(dateStr, h, m);
         const endAt = new Date(Date.parse(startAt) + durationMs).toISOString();
         const s = Date.parse(startAt);
         const e = Date.parse(endAt);
@@ -68,9 +101,8 @@ function availability(eventTypeId, from, to) {
       }
     }
     days.push({ date: dateStr, slots });
-    cur = new Date(cur.getTime() + 86400000);
   }
-  return { eventTypeId, from, to, days };
+  return { eventTypeId, from, to, timeZone: TIME_ZONE, days };
 }
 
 async function route(req, res) {

@@ -49,7 +49,6 @@ test("S2: занятый слот исчезает из списка свобо�
   await page.getByRole("button", { name: "Назад к слотам" }).click();
   await expect(page).toHaveURL(/\/book\/evt-30$/);
 
-  await page.locator("[data-today]").click();
   await expect(page.getByRole("button", { name: /Свободно/ })).toHaveCount(before - 1);
 });
 

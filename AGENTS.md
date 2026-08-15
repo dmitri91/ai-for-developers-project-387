@@ -26,6 +26,7 @@ npm run start   # real in-memory API on :4010 (node:http only, no deps)
 ```
 
 - `backend/src/rules.js` is the production home of business rules (slots 09:00–18:00, 30-min steps, 14-day default window, 409 `SLOT_OCCUPIED` on overlapping bookings across all event types). Keep it in sync with the contract.
+- **Timezone model:** the calendar lives in a single canonical IANA zone, `Europe/Moscow` (`TIME_ZONE` in `rules.js`). Slots and day keys are built in that zone (offsets via `Intl.DateTimeFormat`); the availability response carries `timeZone`; the frontend renders in that same zone (`CALENDAR_TIME_ZONE` in `front/src/datetime.ts`, overridable by the `tz`/`timeZone` from the API). All three spots must stay in sync, and the 14-day window is anchored to "today" in the owner's zone. The commit is `feat(contract,backend,front)!`-free (additive field).
 - Storage is in-memory (`backend/src/storage.js`): data resets on restart.
 - `backend/src/server.js` maps domain errors to coded responses (400 `VALIDATION_ERROR`, 404 `NOT_FOUND`, 409 `SLOT_OCCUPIED`) and adds CORS headers (API is for a separate frontend client).
 

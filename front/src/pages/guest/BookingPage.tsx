@@ -1,30 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
 import { Alert, Badge, Button, Card, Container, Divider, Grid, Group, Loader, Stack, Text, Title } from "@mantine/core";
 import { DatePicker } from "@mantine/dates";
 import dayjs from "dayjs";
 import { api, ApiError, type AvailabilityWindow, type EventType, type Slot } from "../../api/client";
-import { formatTime } from "../../datetime";
+import { CALENDAR_TIME_ZONE, formatTime } from "../../datetime";
 
 export default function BookingPage() {
   const { eventTypeId } = useParams<{ eventTypeId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   const [eventType, setEventType] = useState<EventType | null>(null);
   const [availability, setAvailability] = useState<AvailabilityWindow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(
-    () => (location.state as { date?: string } | null)?.date ?? null,
+    () =>
+      (location.state as { date?: string } | null)?.date ??
+      searchParams.get("date") ??
+      null,
   );
+
+  const timeZone = availability?.timeZone ?? CALENDAR_TIME_ZONE;
 
   useEffect(() => {
     if (!eventTypeId) return;
     const load = async () => {
       try {
-        const from = dayjs().format("YYYY-MM-DD");
-        const to = dayjs().add(13, "day").format("YYYY-MM-DD");
+        const now = dayjs().tz(CALENDAR_TIME_ZONE);
+        const from = now.format("YYYY-MM-DD");
+        const to = now.add(13, "day").format("YYYY-MM-DD");
         const [types, window] = await Promise.all([
           api.listEventTypes(),
           api.availability(eventTypeId, from, to),
@@ -45,8 +52,9 @@ export default function BookingPage() {
   const loadAvailability = async () => {
     if (!eventTypeId) return;
     try {
-      const from = dayjs().format("YYYY-MM-DD");
-      const to = dayjs().add(13, "day").format("YYYY-MM-DD");
+      const now = dayjs().tz(CALENDAR_TIME_ZONE);
+      const from = now.format("YYYY-MM-DD");
+      const to = now.add(13, "day").format("YYYY-MM-DD");
       setAvailability(await api.availability(eventTypeId, from, to));
     } catch {
       // keep current window
@@ -92,6 +100,9 @@ export default function BookingPage() {
             <Divider />
 
             <Text fw={600}>Статус слотов</Text>
+            <Text size="xs" c="dimmed">
+              Время слотов указано по {timeZone}
+            </Text>
             {slotsForDate.length === 0 ? (
               <Text c="dimmed" size="sm">
                 На выбранную дату свободных слотов нет.
@@ -106,13 +117,13 @@ export default function BookingPage() {
                     radius="md"
                     fullWidth
                     onClick={() =>
-                      navigate(`/book/${eventTypeId}/confirm?ts=${encodeURIComponent(slot.startAt)}`)
+                      navigate(`/book/${eventTypeId}/confirm?ts=${encodeURIComponent(slot.startAt)}&tz=${encodeURIComponent(timeZone)}`)
                     }
                     style={{ paddingLeft: 12, paddingRight: 12 }}
                   >
                     <Group justify="space-between" w="100%" wrap="nowrap">
                       <Text fw={600}>
-                        {formatTime(slot.startAt)} – {formatTime(slot.endAt)}
+                        {formatTime(slot.startAt, timeZone)} – {formatTime(slot.endAt, timeZone)}
                       </Text>
                       <Badge color="green" variant="light" size="sm">
                         Свободно
@@ -147,6 +158,7 @@ export default function BookingPage() {
                 onChange={handleDateChange}
                 minDate={availability?.from}
                 maxDate={availability?.to}
+                defaultDate={dayjs().tz(timeZone).toDate()}
                 size="md"
               />
               <Text size="xs" c="dimmed">
