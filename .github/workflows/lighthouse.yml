@@ -1,0 +1,86 @@
+name: nightly-lighthouse
+
+on:
+  # Ночной аудит: 22:00 UTC = 01:00 МСК, отчёт готов к утру
+  schedule:
+    - cron: "0 22 * * *"
+  # Ручной запуск той же задачи из вкладки Actions
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "URL для аудита Lighthouse (по умолчанию продакшен)"
+        required: false
+        default: https://calendar-app-96il.onrender.com
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Установка Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Установка Chrome и Lighthouse CLI
+        run: |
+          if ! command -v google-chrome-stable >/dev/null 2>&1; then
+            wget -q -O /tmp/google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+            sudo dpkg -i /tmp/google-chrome.deb || sudo apt-get -f install -y
+          fi
+          npm install -g lighthouse
+          echo "CHROME_PATH=$(command -v google-chrome-stable)" >> "$GITHUB_ENV"
+
+      - name: Ночной аудит Lighthouse
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENCODE_CONFIG_CONTENT: '{"permission":{"bash":{"npm install *":"allow","npm i *":"allow","npm ci *":"allow","npx *":"allow","yarn add *":"allow","pnpm add *":"allow","curl *":"allow","wget *":"allow","git clone *":"allow","pip install *":"allow","go get *":"allow"},"external_directory":{"*":"allow"}}}'
+        with:
+          model: opencode/deepseek-v4-flash-free
+          use_github_token: true
+          prompt: |
+            Выполни ночной аудит Lighthouse продакшен-приложения.
+
+            URL: ${{ inputs.url || 'https://calendar-app-96il.onrender.com' }}
+
+            Шаги:
+            1. Убедись, что Chrome доступен (переменная окружения CHROME_PATH) и
+               Lighthouse CLI установлен глобально (команда lighthouse).
+            2. Создай каталог lighthouse и запусти проверку:
+               lighthouse <URL> --quiet --output=html,json --output-path=./lighthouse/report \
+                 --chrome-flags="--headless --no-sandbox --disable-gpu" \
+                 --only-categories=performance,accessibility,best-practices,seo
+               Если аудит не завершился из-за временной ошибки сети, повтори до трёх раз.
+            3. Прочитай ./lighthouse/report.json и собери результаты: оценки
+               (score 0–1, переведи в проценты) по категориям Performance,
+               Accessibility, Best Practices, SEO и ключевые метрики
+               (FCP, LCP, TBT, CLS, SI).
+            4. Запиши отчёт в файл LIGHTHOUSE_REPORT.md:
+               - Дата и URL проверки;
+               - Таблица оценок по категориям;
+               - Сводка найденных проблем;
+               - Конкретный список правок, которые нужно внести в проект (front/),
+                 с приоритетами, чтобы команда утром могла решить, что делать.
+               Комментарии и формулировки — на русском.
+            5. Закоммить lighthouse/report.html, lighthouse/report.json и
+               LIGHTHOUSE_REPORT.md и открой pull request «Отчёт Lighthouse <дата>»
+               с кратким описанием результатов в теле PR.
+
+      - name: Сохранение отчёта (артефакт)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: |
+            lighthouse/report.html
+            lighthouse/report.json
+            LIGHTHOUSE_REPORT.md
+          if-no-files-found: warn

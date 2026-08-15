@@ -58,8 +58,9 @@ All commits — including those made by the agent — must follow the Convention
 - Keep messages concise, imperative, in the project's language where appropriate.
 - release-please derives version bumps and the CHANGELOG from these, so unrelated changes must not be bundled into `feat`/`fix` commits.
 
-## e2e / releases
+## e2e / releases / регулярные задачи
 
 - `e2e/` — Playwright integration tests (TypeScript). Run with `npm test` (in `e2e/`); Playwright starts backend (:4010) + frontend (:5173) itself via `webServer`.
 - `.github/workflows/ci.yml` — CI: frontend lint/build + Playwright tests.
 - `.github/workflows/release-please.yml` — auto release-PR with CHANGELOG on commits to `main` (Conventional Commits).
+- `.github/workflows/lighthouse.yml` — ночной аудит Lighthouse продакшена (Render): `schedule` 22:00 UTC + ручной `workflow_dispatch` с input `url`. Агент генерирует report.html/json, пишет `LIGHTHOUSE_REPORT.md` со списком правок и открывает PR «Отчёт Lighthouse <дата>`. Чтобы запустить вручную: Actions → nightly-lighthouse → Run workflow.
