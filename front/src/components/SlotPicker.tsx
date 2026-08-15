@@ -1,15 +1,16 @@
 import { Button, Card, Stack, Text, Title } from "@mantine/core";
 import dayjs from "dayjs";
 import type { DayAvailability } from "../api/client";
-import { formatTime } from "../datetime";
+import { DEFAULT_TIME_ZONE, formatTime } from "../datetime";
 
 interface SlotPickerProps {
   days: DayAvailability[];
   selectedStartAt: string | null;
   onSelect: (startAt: string) => void;
+  timeZone?: string;
 }
 
-export default function SlotPicker({ days, selectedStartAt, onSelect }: SlotPickerProps) {
+export default function SlotPicker({ days, selectedStartAt, onSelect, timeZone = DEFAULT_TIME_ZONE }: SlotPickerProps) {
   return (
     <Stack gap="md">
       {days.map((day) => (
@@ -32,7 +33,7 @@ export default function SlotPicker({ days, selectedStartAt, onSelect }: SlotPick
                     variant={active ? "filled" : "default"}
                     onClick={() => onSelect(slot.startAt)}
                   >
-                    {formatTime(slot.startAt)}
+                    {formatTime(slot.startAt, timeZone)}
                   </Button>
                 );
               })}

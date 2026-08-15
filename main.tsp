@@ -43,6 +43,8 @@ model AvailabilityWindow {
   eventTypeId: string;
   from: plainDate;
   to: plainDate;
+  /** Часовой пояс владельца календаря (IANA): в нём построены слоты и ключи дней. */
+  timeZone: string;
   days: DayAvailability[];
 }
 

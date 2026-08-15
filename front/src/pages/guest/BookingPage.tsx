@@ -4,7 +4,7 @@ import { Alert, Badge, Button, Card, Container, Divider, Grid, Group, Loader, St
 import { DatePicker } from "@mantine/dates";
 import dayjs from "dayjs";
 import { api, ApiError, type AvailabilityWindow, type EventType, type Slot } from "../../api/client";
-import { formatTime } from "../../datetime";
+import { DEFAULT_TIME_ZONE, formatTime } from "../../datetime";
 
 export default function BookingPage() {
   const { eventTypeId } = useParams<{ eventTypeId: string }>();
@@ -62,6 +62,8 @@ export default function BookingPage() {
     return availability.days.find((day) => day.date === selectedDate)?.slots ?? [];
   }, [selectedDate, availability]);
 
+  const timeZone = availability?.timeZone ?? DEFAULT_TIME_ZONE;
+
   if (loading) return <Loader mt="xl" />;
   if (error) return <Alert color="red" mt="xl">{error}</Alert>;
 
@@ -92,6 +94,9 @@ export default function BookingPage() {
             <Divider />
 
             <Text fw={600}>Статус слотов</Text>
+            <Text size="xs" c="dimmed">
+              Время указано по часовому поясу {timeZone}
+            </Text>
             {slotsForDate.length === 0 ? (
               <Text c="dimmed" size="sm">
                 На выбранную дату свободных слотов нет.
@@ -106,13 +111,15 @@ export default function BookingPage() {
                     radius="md"
                     fullWidth
                     onClick={() =>
-                      navigate(`/book/${eventTypeId}/confirm?ts=${encodeURIComponent(slot.startAt)}`)
+                      navigate(
+                        `/book/${eventTypeId}/confirm?ts=${encodeURIComponent(slot.startAt)}&tz=${encodeURIComponent(timeZone)}`,
+                      )
                     }
                     style={{ paddingLeft: 12, paddingRight: 12 }}
                   >
                     <Group justify="space-between" w="100%" wrap="nowrap">
                       <Text fw={600}>
-                        {formatTime(slot.startAt)} – {formatTime(slot.endAt)}
+                        {formatTime(slot.startAt, timeZone)} – {formatTime(slot.endAt, timeZone)}
                       </Text>
                       <Badge color="green" variant="light" size="sm">
                         Свободно
