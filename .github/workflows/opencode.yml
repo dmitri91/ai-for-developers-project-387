@@ -27,6 +27,7 @@ jobs:
         env:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENCODE_CONFIG_CONTENT: '{"permission":{"bash":{"npm install *":"allow","npm i *":"allow","npm ci *":"allow","npx *":"allow","yarn add *":"allow","pnpm add *":"allow","curl *":"allow","wget *":"allow","git clone *":"allow","pip install *":"allow","go get *":"allow"},"external_directory":{"*":"allow"}}}'
         with:
           model: opencode/deepseek-v4-flash-free
           use_github_token: true
