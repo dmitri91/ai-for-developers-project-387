@@ -6,13 +6,20 @@ on:
   pull_request_review_comment:
     types: [created]
 
+# Не даём параллельным вызовам агента штабелироваться при шквале команд
+concurrency:
+  group: opencode-${{ github.event.issue.number || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   opencode:
+    # Реагируем только на команды; игнорируем сообщения ботов (в т.ч. свои же ответы)
     if: |
-      contains(github.event.comment.body, ' /oc') ||
+      (github.actor != 'github-actions[bot]' && github.actor != 'dependabot[bot]') &&
+      (contains(github.event.comment.body, ' /oc') ||
       startsWith(github.event.comment.body, '/oc') ||
       contains(github.event.comment.body, ' /opencode') ||
-      startsWith(github.event.comment.body, '/opencode')
+      startsWith(github.event.comment.body, '/opencode'))
     runs-on: ubuntu-latest
     permissions:
       contents: write

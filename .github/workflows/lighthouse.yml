@@ -17,6 +17,11 @@ permissions:
   pull-requests: write
   issues: write
 
+# Исключаем параллельные аудиты (иначе дублируются отчётные PR)
+concurrency:
+  group: nightly-lighthouse
+  cancel-in-progress: true
+
 jobs:
   audit:
     runs-on: ubuntu-latest
