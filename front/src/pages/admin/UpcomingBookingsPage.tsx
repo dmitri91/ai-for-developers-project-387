@@ -15,7 +15,7 @@ import {
 } from "@mantine/core";
 import dayjs from "dayjs";
 import { api, ApiError, type Booking, type EventType } from "../../api/client";
-import { formatDateShort, formatDayQuery, formatTime } from "../../datetime";
+import { DEFAULT_TIME_ZONE, formatDateShort, formatDayQuery, formatTime } from "../../datetime";
 
 const AVATAR_COLORS = ["blue", "grape", "teal", "orange", "indigo", "pink", "cyan"];
 
@@ -27,6 +27,11 @@ function initialsOf(name: string): string {
     .map((p) => p[0]?.toUpperCase() ?? "")
     .join("");
 }
+
+const DAY_MS = 86_400_000;
+
+const daysBetween = (from: string, to: string) =>
+  Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
 
 interface DayGroup {
   date: string;
@@ -63,19 +68,18 @@ export default function UpcomingBookingsPage() {
   const groups: DayGroup[] = useMemo(() => {
     const buckets = new Map<string, Booking[]>();
     for (const b of bookings) {
-      const date = formatDayQuery(b.startAt);
+      const date = formatDayQuery(b.startAt, DEFAULT_TIME_ZONE);
       const arr = buckets.get(date) ?? [];
       arr.push(b);
       buckets.set(date, arr);
     }
-    const today = dayjs().startOf("day");
+    const today = dayjs().tz(DEFAULT_TIME_ZONE).format("YYYY-MM-DD");
     return [...buckets.entries()]
       .sort()
       .map(([date, items]) => {
-        const d = dayjs(date).startOf("day");
-        const diff = d.diff(today, "day");
+        const diff = daysBetween(today, date);
         const label =
-          diff === 0 ? "Сегодня" : diff === 1 ? "Завтра" : diff === -1 ? "Вчера" : d.format("dddd, D MMMM");
+          diff === 0 ? "Сегодня" : diff === 1 ? "Завтра" : diff === -1 ? "Вчера" : dayjs(date).format("dddd, D MMMM");
         return { date, label, items };
       });
   }, [bookings]);
@@ -148,7 +152,7 @@ export default function UpcomingBookingsPage() {
                         </div>
                         <Stack gap={2} align="flex-end" ta="right" style={{ flex: "0 0 auto" }}>
                           <Text fw={600} style={{ whiteSpace: "nowrap" }}>
-                            {formatTime(b.startAt)} – {formatTime(b.endAt)}
+                            {formatTime(b.startAt, DEFAULT_TIME_ZONE)} – {formatTime(b.endAt, DEFAULT_TIME_ZONE)}
                           </Text>
                           {meta && (
                             <Badge variant="light" color="blue" size="sm">
@@ -156,7 +160,7 @@ export default function UpcomingBookingsPage() {
                             </Badge>
                           )}
                           <Text size="xs" c="dimmed" style={{ whiteSpace: "nowrap" }}>
-                            {formatDateShort(b.startAt)}
+                            {formatDateShort(b.startAt, DEFAULT_TIME_ZONE)}
                           </Text>
                         </Stack>
                       </Group>
