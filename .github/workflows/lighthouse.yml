@@ -52,32 +52,8 @@ jobs:
           model: opencode/deepseek-v4-flash-free
           use_github_token: true
           prompt: |
-            Выполни ночной аудит Lighthouse продакшен-приложения.
-
-            URL: ${{ inputs.url || 'https://calendar-app-96il.onrender.com' }}
-
-            Шаги:
-            1. Убедись, что Chrome доступен (переменная окружения CHROME_PATH) и
-               Lighthouse CLI установлен глобально (команда lighthouse).
-            2. Создай каталог lighthouse и запусти проверку:
-               lighthouse <URL> --quiet --output=html,json --output-path=./lighthouse/report \
-                 --chrome-flags="--headless --no-sandbox --disable-gpu" \
-                 --only-categories=performance,accessibility,best-practices,seo
-               Если аудит не завершился из-за временной ошибки сети, повтори до трёх раз.
-            3. Прочитай ./lighthouse/report.json и собери результаты: оценки
-               (score 0–1, переведи в проценты) по категориям Performance,
-               Accessibility, Best Practices, SEO и ключевые метрики
-               (FCP, LCP, TBT, CLS, SI).
-            4. Запиши отчёт в файл LIGHTHOUSE_REPORT.md:
-               - Дата и URL проверки;
-               - Таблица оценок по категориям;
-               - Сводка найденных проблем;
-               - Конкретный список правок, которые нужно внести в проект (front/),
-                 с приоритетами, чтобы команда утром могла решить, что делать.
-               Комментарии и формулировки — на русском.
-            5. Закоммить lighthouse/report.html, lighthouse/report.json и
-               LIGHTHOUSE_REPORT.md и открой pull request «Отчёт Lighthouse <дата>»
-               с кратким описанием результатов в теле PR.
+            Выполни ночной аудит Lighthouse, используя навык lighthouse-audit.
+            URL для проверки: ${{ inputs.url || 'https://calendar-app-96il.onrender.com' }}
 
       - name: Сохранение отчёта (артефакт)
         if: always()
