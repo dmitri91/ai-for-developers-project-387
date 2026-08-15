@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.1](https://github.com/dmitri91/ai-for-developers-project-387/compare/ai-for-developers-project-386-v0.2.0...ai-for-developers-project-386-v0.2.1) (2026-08-15)
+
+
+### CI
+
+* add nightly lighthouse audit workflow ([0ffe6bc](https://github.com/dmitri91/ai-for-developers-project-387/commit/0ffe6bc9cbac961ac686bb9c8807c577558c10de))
+* guard agent workflows against bot feedback loops ([f83f8b4](https://github.com/dmitri91/ai-for-developers-project-387/commit/f83f8b409e71468d5042a1774d7b377ee2438aff))
+
+
+### Chores
+
+* add opencode skills for issue review and lighthouse workflows ([9ce8ca5](https://github.com/dmitri91/ai-for-developers-project-387/commit/9ce8ca5e7aff1f30a94b205f6645c71d736a85f2))
+
 ## [0.2.0](https://github.com/dmitri91/ai-for-developers-project-387/compare/ai-for-developers-project-386-v0.1.0...ai-for-developers-project-386-v0.2.0) (2026-08-15)
 
 
